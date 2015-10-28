@@ -1,0 +1,30 @@
+#version 330 core
+
+layout(location = 0) in vec3 vertexPosition;
+out vec3 colorRGB;
+
+uniform mat4 MVP;
+uniform float minZ;
+uniform float maxZ;
+uniform vec2 trackID;
+
+float map(float x, float a, float b, float ap, float bp){
+    return ((x - a) / (b - a)) * (bp - ap) + ap;
+}
+
+void main(){
+        float v = map(vertexPosition.z, minZ, maxZ, 0.0f, 2.0f);
+        float g = 1.0f;
+        float r = 0.0f;
+        if(v > 1.0f){
+            r = 1.0f;
+            g = v - 1.0f;
+            g = 1.0f - g;
+        } else {
+            r = v;
+        }
+        colorRGB = vec3(r,g,trackID.x / trackID.y);
+	gl_Position =  MVP * vec4(vertexPosition.xy,0.0f,1);
+}
+
+

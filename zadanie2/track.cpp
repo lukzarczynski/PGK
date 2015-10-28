@@ -1,8 +1,8 @@
 #include "track.hpp"
 
 Track::Track(std::vector<glm::vec3> arg) : coords(arg) {
-    max = glm::vec3(-1000.0f, -1000.0f, -1000.0f);
-    min = glm::vec3(1000.0f, 1000.0f, 1000.0f);
+    max = glm::vec3(-10000.0f, -10000.0f, -10000.0f);
+    min = glm::vec3(10000.0f, 10000.0f, 10000.0f);
 
     for (unsigned int i = 0; i < coords.size(); i++) {
         if (coords[i].x > max.x) {

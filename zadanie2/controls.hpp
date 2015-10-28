@@ -4,9 +4,8 @@
 class Controls {
 public:
     static glm::vec3 initial;
-    static void computeMatricesFromInputs(GLFWwindow* window);
-    static glm::mat4 getViewMatrix();
-    static glm::mat4 getProjectionMatrix();
+    static void computeTranslateAndScale();
+    static glm::vec3 getPosition();
     static void reset();
 };
 

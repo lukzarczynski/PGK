@@ -5,15 +5,15 @@
 
 GLFWwindow* window;
 
-std::vector<Track> track;
+std::vector<Track> tracks;
 std::vector<GLuint> vertexbuffers;
 
 GLuint VertexArrayID;
 GLuint programID;
-GLuint MatrixID;
+GLuint posVec;
 GLuint minZ;
 GLuint maxZ;
-GLuint trackID;
+GLuint blue;
 
 double Render::GetTime() {
     return glfwGetTime();
@@ -32,8 +32,8 @@ float map(float x, float a, float b, float ap, float bp) {
 }
 
 int Render::Init(std::vector<Track> arg) {
-    track = arg;
-    vertexbuffers.resize(track.size());
+    tracks = arg;
+    vertexbuffers.resize(tracks.size());
 
     // Initialise GLFW
     if (!glfwInit()) {
@@ -47,7 +47,7 @@ int Render::Init(std::vector<Track> arg) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Open a window and create its OpenGL context
-    window = glfwCreateWindow(1024, 768, "Tutorial 03 - Matrices", NULL, NULL);
+    window = glfwCreateWindow(680, 480, "Zadanie 2 - GPS", NULL, NULL);
     if (window == NULL) {
         fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n");
         glfwTerminate();
@@ -62,10 +62,8 @@ int Render::Init(std::vector<Track> arg) {
         return -1;
     }
 
-    // Ensure we can capture the escape key being pressed below
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
-    // Dark blue background
     glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
 
     glGenVertexArrays(1, &VertexArrayID);
@@ -75,66 +73,59 @@ int Render::Init(std::vector<Track> arg) {
     programID = LoadShaders("Map.vertexshader", "Map.fragmentshader");
 
     // Get a handle for our "MVP" uniform
-    MatrixID = glGetUniformLocation(programID, "MVP");
-    minZ = glGetUniformLocation(programID, "minZ");
-    maxZ = glGetUniformLocation(programID, "maxZ");
-    trackID = glGetUniformLocation(programID, "trackID");
+    posVec = glGetUniformLocation(programID, "posVec");
+    blue = glGetUniformLocation(programID, "blue");
 
-    glGenBuffers(track.size(), &vertexbuffers[0]);
-    for (unsigned int i = 0; i < track.size(); i++) {
-        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffers[i]);
-        glBufferData(GL_ARRAY_BUFFER, track[i].coords.size() * sizeof (glm::vec3), &track[i].coords[0], GL_STATIC_DRAW);
+    // scale 
+    for (unsigned int i = 0; i < tracks.size(); i++) {
+        for (unsigned int j = 0; j < tracks[i].coords.size(); j++) {
+            tracks[i].coords[j].z = map(tracks[i].coords[j].z, Map::minVertex.z, Map::maxVertex.z, 0.0f, 2.0f);
+        }
     }
 
-    Controls::initial = glm::vec3(
-            (Map::minVertex.x + Map::maxVertex.x) / 2,
-            (Map::minVertex.y + Map::maxVertex.y) / 2,
-            std::max(((Map::maxVertex.x - Map::minVertex.x)),
-            ((Map::maxVertex.y - Map::minVertex.y))));
+    //Bind buffers
+    glGenBuffers(tracks.size(), &vertexbuffers[0]);
+    for (unsigned int i = 0; i < tracks.size(); i++) {
+        glBindBuffer(GL_ARRAY_BUFFER, vertexbuffers[i]);
+        glBufferData(GL_ARRAY_BUFFER, tracks[i].coords.size() * sizeof (glm::vec3), &tracks[i].coords[0], GL_STATIC_DRAW);
+    }
 
+    float xlen = Map::maxVertex.x - Map::minVertex.x;
+    float ylen = Map::maxVertex.y - Map::minVertex.y;
 
-    printf("\ninitial: x= %f, y=%f, z=%f", Controls::initial.x, Controls::initial.y, Controls::initial.z);
-    printf("\nmin: x= %f, y=%f, z=%f", Map::minVertex.x, Map::minVertex.y, Map::minVertex.z);
-    printf("\nmax: x= %f, y=%f, z=%f", Map::maxVertex.x, Map::maxVertex.y, Map::maxVertex.z);
-    
+    float scale = 1 / (std::max(xlen, ylen) / 2);
+    float translateX = -(((xlen / 2) + Map::minVertex.x) * scale);
+    float translateY = -(((ylen / 2) + Map::minVertex.y) * scale);
+
+    Controls::initial = glm::vec3(translateX, translateY, scale);
+
+    //    printf("\ninitial: x= %f, y=%f, z=%f", Controls::initial.x, Controls::initial.y, Controls::initial.z);
+    //    printf("\nmin: x= %f, y=%f, z=%f", Map::minVertex.x, Map::minVertex.y, Map::minVertex.z);
+    //    printf("\nmax: x= %f, y=%f, z=%f", Map::maxVertex.x, Map::maxVertex.y, Map::maxVertex.z);
+
     Controls::reset();
     return 0;
 }
 
 void Render::Frame() {
+    //    printf("\npos: x= %f, y=%f, z=%f", Controls::getPosition().x, Controls::getPosition().y, Controls::getPosition().z);
 
-    // Clear the screen
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Use our shader
     glUseProgram(programID);
 
-
-    glUniform1f(minZ, Map::minVertex.z);
-    glUniform1f(maxZ, Map::maxVertex.z);
-
-
-    Controls::computeMatricesFromInputs(window);
-
-    glm::mat4 ProjectionMatrix = Controls::getProjectionMatrix();
-    glm::mat4 ViewMatrix = Controls::getViewMatrix();
-    glm::mat4 ModelMatrix = glm::mat4(1.0);
-    glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
-
-
-    // Send our transformation to the currently bound shader, 
-    // in the "MVP" uniform
-    glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
+    Controls::computeTranslateAndScale();
+    glUniform3fv(posVec, 1, &Controls::getPosition()[0]);
 
     glEnableVertexAttribArray(0);
 
-    for (unsigned int i = 0; i < track.size(); i++) {
+    for (unsigned int i = 0; i < tracks.size(); i++) {
 
-        glUniform2f(trackID, (float) i, (float) track.size());
+        glUniform1f(blue, (float) (i / tracks.size()));
 
         glBindBuffer(GL_ARRAY_BUFFER, vertexbuffers[i]);
         glVertexAttribPointer(
-                0.0f, // attribute. No particular reason for 0.0f, but must match the layout in the shader.
+                0, // attribute.
                 3, // size
                 GL_FLOAT, // type
                 GL_FALSE, // normalized?
@@ -142,7 +133,7 @@ void Render::Frame() {
                 (void*) 0 // array buffer offset
                 );
 
-        glDrawArrays(GL_LINE_STRIP, 0.0f, track[i].coords.size());
+        glDrawArrays(GL_LINE_STRIP, 0, tracks[i].coords.size());
 
     }
     glDisableVertexAttribArray(0);
@@ -155,7 +146,7 @@ void Render::Frame() {
 
 void Render::CleanUp() {
     // Cleanup VBO and shader
-    for (unsigned int i = 0; i < track.size(); i++) {
+    for (unsigned int i = 0; i < tracks.size(); i++) {
         glDeleteBuffers(1, &vertexbuffers[i]);
     }
     glDeleteProgram(programID);

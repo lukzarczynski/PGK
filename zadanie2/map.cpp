@@ -21,6 +21,7 @@ std::vector<Track> Map::InitMap(int argc, char * argv[]) {
     for (int i = 1; i < argc; i++) {
         data.push_back(Map::readFile(argv[i]));
 
+        //find min, max
         if (data[i-1].max.x > maxVertex.x) {
             maxVertex.x = data[i-1].max.x;
         }

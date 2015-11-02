@@ -20,11 +20,10 @@ enabled, e.g. `cmake -DForceNoLibs=ON ..`
 
 Running
 ===
-You can run the application from within the `build` or `zadanieN` directory.
 
 <pre>
 cd build
-./zadanieN
+make all
 </pre>
 
 where N is the task number.
